@@ -155,4 +155,4 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
-print("Fov+L, Fov-H; Pred+K, Pred-J; ESP: (" C ") on/off")
+print("Fov+L, Fov-H; Pred+K, Pred-J; ESP: ( C ) on/off")
