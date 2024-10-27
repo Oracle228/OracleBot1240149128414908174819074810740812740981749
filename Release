@@ -1,0 +1,158 @@
+loadstring(game:HttpGet("https://raw.githubusercontent.com/Oracle228/shh/refs/heads/main/esp?token=GHSAT0AAAAAACZQSJ37VPYMT2AVRCPTOW6GZY6EZGA"))() -- loading esp
+
+local Config = {
+    Fov = 40,
+    Smoothness = 1,
+    Prediction = 0.03,
+    TargetPart = "Head",  -- Прицеливаемся на голову
+    TeamCheck = false,
+    WallCheck = false,
+    FovColor = Color3.fromRGB(65, 105, 225)
+}
+
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local Camera = workspace.CurrentCamera
+
+local fovCircle = Drawing.new("Circle")
+fovCircle.Visible = true
+fovCircle.Thickness = 0.8
+fovCircle.Color = Config.FovColor
+fovCircle.Filled = false
+fovCircle.Radius = Config.Fov
+fovCircle.Position = Camera.ViewportSize / 2
+
+local currentTarget = nil
+
+local function Health(player)
+    local character = player.Character
+    return character and character:FindFirstChild("Humanoid") and character.Humanoid.Health > 0
+end
+
+local function TeamCheck(player)
+    return Config.TeamCheck and player.Team == Players.LocalPlayer.Team
+end
+
+local function WallCheck(player)
+    if not Config.WallCheck then return true end
+
+    local character = player.Character
+    if character and character:FindFirstChild(Config.TargetPart) then
+        local targetPart = character[Config.TargetPart]
+        local origin = Camera.CFrame.Position
+        local direction = (targetPart.Position - origin)
+        local raycastParams = RaycastParams.new()
+        raycastParams.FilterDescendantsInstances = {Players.LocalPlayer.Character, player.Character}
+        raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+
+        local raycastResult = workspace:Raycast(origin, direction.Unit * direction.Magnitude, raycastParams)
+
+        return raycastResult == nil
+    end
+    return false
+end
+
+local function Closest()
+    local closest, minDist = nil, math.huge
+    local screenCenter = Camera.ViewportSize / 2
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= Players.LocalPlayer and Health(player) and not TeamCheck(player) and WallCheck(player) then
+            local targetPart = player.Character and player.Character:FindFirstChild(Config.TargetPart)
+            if targetPart then
+                local screenPos, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
+                local distance = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
+
+                if onScreen and distance < minDist and distance < Config.Fov then
+                    minDist = distance
+                    closest = player
+                end
+            end
+        end
+    end
+
+    return closest
+end
+
+local function Predict(position, velocity)
+    return position + velocity * Config.Prediction
+end
+
+local function Aim(target)
+    local predictedPos = Predict(target.Position, target.Velocity)
+    local direction = (predictedPos - Camera.CFrame.Position).Unit
+    Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, Camera.CFrame.Position + direction), Config.Smoothness)
+end
+
+local function UpdateFov()
+    fovCircle.Position = Camera.ViewportSize / 2
+    fovCircle.Radius = Config.Fov  -- Обновляем радиус круга FOV при каждом кадре
+end
+
+-- Функция для изменения Prediction
+local function AdjustPrediction(increase)
+    if increase then
+        Config.Prediction = Config.Prediction + 0.01
+    else
+        Config.Prediction = Config.Prediction - 0.01
+    end
+    print("Current Prediction value:", Config.Prediction)
+end
+
+-- Функция для изменения FOV на 10 единиц
+local function AdjustFov(increase)
+    if increase then
+        Config.Fov = Config.Fov + 10
+    else
+        Config.Fov = Config.Fov - 10
+    end
+    print("Current FOV value:", Config.Fov)
+end
+
+-- Обработчик нажатия клавиш для изменения Prediction и FOV
+UserInputService.InputBegan:Connect(function(input, gameProcessedEvent)
+    if gameProcessedEvent then return end
+
+    -- Увеличение Prediction при нажатии клавиши K
+    if input.KeyCode == Enum.KeyCode.K then
+        AdjustPrediction(true)
+    end
+
+    -- Уменьшение Prediction при нажатии клавиши J
+    if input.KeyCode == Enum.KeyCode.J then
+        AdjustPrediction(false)
+    end
+
+    -- Увеличение FOV при нажатии клавиши L
+    if input.KeyCode == Enum.KeyCode.L then
+        AdjustFov(true)
+    end
+
+    -- Уменьшение FOV при нажатии клавиши H
+    if input.KeyCode == Enum.KeyCode.H then
+        AdjustFov(false)
+    end
+end)
+
+RunService.RenderStepped:Connect(function()
+    UpdateFov()
+    
+    -- Проверяем нажатие правой кнопки мыши
+    if UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
+        -- Если текущая цель уже есть, не обновляем её
+        if not currentTarget or not currentTarget.Character or not currentTarget.Character:FindFirstChild(Config.TargetPart) then
+            currentTarget = Closest()  -- Захватываем новую цель, если текущая недоступна
+        end
+
+        -- Наводимся на текущую цель
+        if currentTarget and currentTarget.Character and currentTarget.Character:FindFirstChild(Config.TargetPart) then
+            Aim(currentTarget.Character[Config.TargetPart])
+        end
+    else
+        -- Сбрасываем цель, если правая кнопка мыши отпущена
+        currentTarget = nil
+    end
+end)
+
+print("Fov+L, Fov-H; Pred+K, Pred-J")
