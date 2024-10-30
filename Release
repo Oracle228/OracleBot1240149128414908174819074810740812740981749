@@ -7,7 +7,9 @@ local Config = {
     TargetPart = "Head",  -- Прицеливаемся на голову
     TeamCheck = false,
     WallCheck = false,
-    FovColor = Color3.fromRGB(65, 105, 225)
+    FovColor = Color3.fromRGB(65, 105, 225),
+    CloseRangeDistance = 100,  -- Расстояние для отключения предикшена
+    CloseRangePrediction = false  -- Флаг для включения/отключения функции сброса предикшена
 }
 
 local RunService = game:GetService("RunService")
@@ -24,6 +26,7 @@ fovCircle.Radius = Config.Fov
 fovCircle.Position = Camera.ViewportSize / 2
 
 local currentTarget = nil
+local originalPrediction = Config.Prediction  -- Сохраняем оригинальное значение Prediction
 
 local function Health(player)
     local character = player.Character
@@ -75,14 +78,23 @@ local function Closest()
     return closest
 end
 
-local function Predict(position, velocity)
-    return position + velocity * Config.Prediction
+local function Predict(position, velocity, distance)
+    -- Если цель ближе чем 100 стадов, предикшен сбрасывается на 0
+    if Config.CloseRangePrediction and distance <= Config.CloseRangeDistance then
+        return position
+    else
+        return position + velocity * Config.Prediction
+    end
 end
 
 local function Aim(target)
-    local predictedPos = Predict(target.Position, target.Velocity)
-    local direction = (predictedPos - Camera.CFrame.Position).Unit
-    Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, Camera.CFrame.Position + direction), Config.Smoothness)
+    local targetPart = target.Character[Config.TargetPart]
+    if targetPart then
+        local distance = (targetPart.Position - Camera.CFrame.Position).Magnitude
+        local predictedPos = Predict(targetPart.Position, targetPart.Velocity, distance)
+        local direction = (predictedPos - Camera.CFrame.Position).Unit
+        Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, Camera.CFrame.Position + direction), Config.Smoothness)
+    end
 end
 
 local function UpdateFov()
@@ -97,6 +109,7 @@ local function AdjustPrediction(increase)
     else
         Config.Prediction = Config.Prediction - 0.01
     end
+    originalPrediction = Config.Prediction
     print("Current Prediction value:", Config.Prediction)
 end
 
@@ -110,7 +123,7 @@ local function AdjustFov(increase)
     print("Current FOV value:", Config.Fov)
 end
 
--- Обработчик нажатия клавиш для изменения Prediction и FOV
+-- Обработчик нажатия клавиш для изменения Prediction, FOV и переключения функции CloseRangePrediction
 UserInputService.InputBegan:Connect(function(input, gameProcessedEvent)
     if gameProcessedEvent then return end
 
@@ -133,6 +146,12 @@ UserInputService.InputBegan:Connect(function(input, gameProcessedEvent)
     if input.KeyCode == Enum.KeyCode.H then
         AdjustFov(false)
     end
+
+    -- Включение/выключение функции CloseRangePrediction при нажатии клавиши X
+    if input.KeyCode == Enum.KeyCode.X then
+        Config.CloseRangePrediction = not Config.CloseRangePrediction
+        print("CloseRangePrediction is now", Config.CloseRangePrediction and "enabled" or "disabled")
+    end
 end)
 
 RunService.RenderStepped:Connect(function()
@@ -147,7 +166,7 @@ RunService.RenderStepped:Connect(function()
 
         -- Наводимся на текущую цель
         if currentTarget and currentTarget.Character and currentTarget.Character:FindFirstChild(Config.TargetPart) then
-            Aim(currentTarget.Character[Config.TargetPart])
+            Aim(currentTarget)
         end
     else
         -- Сбрасываем цель, если правая кнопка мыши отпущена
@@ -155,4 +174,4 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
-print("Fov+L, Fov-H; Pred+K, Pred-J; ESP: ( C ) on/off")
+print("Fov+L, Fov-H; Pred+K, Pred-J; ESP: ( C ) on/off; CloseRangePrediction toggle: X")
