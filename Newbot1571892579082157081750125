@@ -146,6 +146,4 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
         print("ESP " .. (ESPEnabled and "Enabled" or "Disabled"))
     end
 end)
-
-print("ESP Script loaded. Press 'C' to toggle ESP.")
     
