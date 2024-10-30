@@ -23,8 +23,8 @@ local SettingsDivider = Main:Divider{
 
 -- Конфигурация аимбота
 local Config = {
-    Enabled = true,         -- Включение аимбота
-    ShowFov = true,         -- Включение отображения FOV
+    Enabled = true,
+    ShowFov = true,
     Fov = 40,
     Smoothness = 1,
     Prediction = 0.03,
@@ -39,12 +39,12 @@ local Config = {
 }
 
 local ESPConfig = {
-    Enabled = false,            -- Включение ESP
-    ShowChams = true,           -- Включение Champs
-    ShowNames = true,           -- Включение Name ESP
-    ShowDistance = true,        -- Включение Distance ESP
-    ShowHealth = true,          -- Включение Health ESP
-    ToggleKey = Enum.KeyCode.C  -- Клавиша для включения ESP
+    Enabled = false,
+    ShowChams = true,
+    ShowNames = true,
+    ShowDistance = true,
+    ShowHealth = true,
+    ToggleKey = Enum.KeyCode.C
 }
 
 local RunService = game:GetService("RunService")
@@ -233,7 +233,7 @@ ESPDivider:Toggle{
     end
 }
 
--- Отключение GUI
+-- Переносим кнопку закрытия в отдельный раздел внизу основной вкладки
 local QuitDivider = Main:Divider{
     Name = "Quit"
 }
