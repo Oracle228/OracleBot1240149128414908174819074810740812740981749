@@ -1,15 +1,43 @@
-loadstring(game:HttpGet("https://raw.githubusercontent.com/Oracle228/OracleBot1240149128414908174819074810740812740981749/refs/heads/main/Newbot1571892579082157081750125"))() -- loading esp
+-- Загружаем библиотеку GUI
+local Lib = loadstring(game:HttpGet("https://raw.githubusercontent.com/7yhx/kwargs_Ui_Library/main/source.lua"))()
+
+-- Создаем основное GUI
+local UI = Lib:Create{
+    Theme = "Dark",
+    Size = UDim2.new(0, 555, 0, 400)
+}
+
+local Main = UI:Tab{
+    Name = "099Scripts"
+}
+
+local SettingsDivider = Main:Divider{
+    Name = "Aimbot Settings"
+}
 
 local Config = {
+    Enabled = true,         -- Включение аимбота
+    ShowFov = true,         -- Включение отображения FOV
     Fov = 40,
     Smoothness = 1,
     Prediction = 0.03,
-    TargetPart = "Head",  -- Прицеливаемся на голову
+    TargetPart = "Head",
     TeamCheck = false,
     WallCheck = false,
     FovColor = Color3.fromRGB(65, 105, 225),
-    CloseRangeDistance = 100,  -- Расстояние для отключения предикшена
-    CloseRangePrediction = false  -- Флаг для включения/отключения функции сброса предикшена
+    CloseRangeDistance = 100,
+    CloseRangePrediction = false,
+    DynamicPrediction = false,
+    BasePredictionStrength = 0.03
+}
+
+local ESPConfig = {
+    Enabled = false,            -- Включение ESP
+    ShowChams = true,           -- Включение Champs
+    ShowNames = true,           -- Включение Name ESP
+    ShowDistance = true,        -- Включение Distance ESP
+    ShowHealth = true,          -- Включение Health ESP
+    ToggleKey = Enum.KeyCode.C  -- Клавиша для включения ESP
 }
 
 local RunService = game:GetService("RunService")
@@ -18,7 +46,7 @@ local UserInputService = game:GetService("UserInputService")
 local Camera = workspace.CurrentCamera
 
 local fovCircle = Drawing.new("Circle")
-fovCircle.Visible = true
+fovCircle.Visible = Config.ShowFov
 fovCircle.Thickness = 0.8
 fovCircle.Color = Config.FovColor
 fovCircle.Filled = false
@@ -26,8 +54,10 @@ fovCircle.Radius = Config.Fov
 fovCircle.Position = Camera.ViewportSize / 2
 
 local currentTarget = nil
-local originalPrediction = Config.Prediction  -- Сохраняем оригинальное значение Prediction
+local originalPrediction = Config.Prediction
+local ESPParts = {}
 
+-- Функции для аимбота
 local function Health(player)
     local character = player.Character
     return character and character:FindFirstChild("Humanoid") and character.Humanoid.Health > 0
@@ -39,7 +69,6 @@ end
 
 local function WallCheck(player)
     if not Config.WallCheck then return true end
-
     local character = player.Character
     if character and character:FindFirstChild(Config.TargetPart) then
         local targetPart = character[Config.TargetPart]
@@ -48,9 +77,7 @@ local function WallCheck(player)
         local raycastParams = RaycastParams.new()
         raycastParams.FilterDescendantsInstances = {Players.LocalPlayer.Character, player.Character}
         raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
-
         local raycastResult = workspace:Raycast(origin, direction.Unit * direction.Magnitude, raycastParams)
-
         return raycastResult == nil
     end
     return false
@@ -59,14 +86,12 @@ end
 local function Closest()
     local closest, minDist = nil, math.huge
     local screenCenter = Camera.ViewportSize / 2
-
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= Players.LocalPlayer and Health(player) and not TeamCheck(player) and WallCheck(player) then
             local targetPart = player.Character and player.Character:FindFirstChild(Config.TargetPart)
             if targetPart then
                 local screenPos, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
                 local distance = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
-
                 if onScreen and distance < minDist and distance < Config.Fov then
                     minDist = distance
                     closest = player
@@ -74,17 +99,12 @@ local function Closest()
             end
         end
     end
-
     return closest
 end
 
 local function Predict(position, velocity, distance)
-    -- Если цель ближе чем 100 стадов, предикшен сбрасывается на 0
-    if Config.CloseRangePrediction and distance <= Config.CloseRangeDistance then
-        return position
-    else
-        return position + velocity * Config.Prediction
-    end
+    local predictionStrength = Config.DynamicPrediction and (Config.BasePredictionStrength * (distance / Config.CloseRangeDistance)) or Config.Prediction
+    return Config.CloseRangePrediction and distance <= Config.CloseRangeDistance and position or position + velocity * predictionStrength
 end
 
 local function Aim(target)
@@ -98,80 +118,145 @@ local function Aim(target)
 end
 
 local function UpdateFov()
+    fovCircle.Visible = Config.ShowFov
     fovCircle.Position = Camera.ViewportSize / 2
-    fovCircle.Radius = Config.Fov  -- Обновляем радиус круга FOV при каждом кадре
+    fovCircle.Radius = Config.Fov
 end
 
--- Функция для изменения Prediction
-local function AdjustPrediction(increase)
-    if increase then
-        Config.Prediction = Config.Prediction + 0.01
-    else
-        Config.Prediction = Config.Prediction - 0.01
-    end
-    originalPrediction = Config.Prediction
-    print("Current Prediction value:", Config.Prediction)
+-- ESP
+local function CreateESP(player)
+    local esp = Instance.new("Folder")
+    esp.Name = player.Name .. "_ESP"
+    local nameTag = Instance.new("BillboardGui")
+    nameTag.Size, nameTag.AlwaysOnTop, nameTag.StudsOffset = UDim2.new(0, 200, 0, 70), true, Vector3.new(0, 3, 0)
+    nameTag.Parent = esp
+    local nameLabel = Instance.new("TextLabel")
+    nameLabel.Size, nameLabel.BackgroundTransparency, nameLabel.TextColor3, nameLabel.TextStrokeColor3, nameLabel.TextStrokeTransparency = UDim2.new(1, 0, 0, 20), 1, Color3.new(1, 1, 1), Color3.new(0, 0, 0), 0
+    nameLabel.Font, nameLabel.TextScaled, nameLabel.Parent = Enum.Font.SourceSansBold, true, nameTag
+    local distanceLabel = Instance.new("TextLabel")
+    distanceLabel.Size, distanceLabel.Position, distanceLabel.BackgroundTransparency, distanceLabel.TextColor3, distanceLabel.TextStrokeColor3, distanceLabel.TextStrokeTransparency = UDim2.new(1, 0, 0, 20), UDim2.new(0, 0, 0, 20), 1, Color3.new(1, 1, 1), Color3.new(0, 0, 0), 0
+    distanceLabel.Font, distanceLabel.TextScaled, distanceLabel.Parent = Enum.Font.SourceSansBold, true, nameTag
+    local healthLabel = Instance.new("TextLabel")
+    healthLabel.Size, healthLabel.Position, healthLabel.BackgroundTransparency, healthLabel.TextColor3, healthLabel.TextStrokeColor3, healthLabel.TextStrokeTransparency = UDim2.new(1, 0, 0, 20), UDim2.new(0, 0, 0, 40), 1, Color3.new(0, 1, 0), Color3.new(0, 0, 0), 0
+    healthLabel.Font, healthLabel.TextScaled, healthLabel.Parent = Enum.Font.SourceSansBold, true, nameTag
+    esp.Parent = Camera
+    return esp
 end
 
--- Функция для изменения FOV на 10 единиц
-local function AdjustFov(increase)
-    if increase then
-        Config.Fov = Config.Fov + 10
-    else
-        Config.Fov = Config.Fov - 10
+local function UpdateESP()
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= Players.LocalPlayer then
+            local esp = ESPParts[player] or CreateESP(player)
+            ESPParts[player] = esp
+            if player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character:FindFirstChild("Humanoid") then
+                esp.Parent, esp.ESP_NameTag.Adornee, esp.ESP_NameTag.NameLabel.Text = ESPConfig.Enabled and Camera or nil, player.Character.Head, ESPConfig.ShowNames and player.Name or ""
+                if ESPConfig.ShowDistance then
+                    local distance = (LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")) and (LocalPlayer.Character.HumanoidRootPart.Position - player.Character.HumanoidRootPart.Position).Magnitude or 0
+                    esp.ESP_NameTag.DistanceLabel.Text = string.format("%.1f studs", distance)
+                end
+                esp.ESP_NameTag.HealthLabel.Text, esp.ESP_NameTag.HealthLabel.TextColor3 = ESPConfig.ShowHealth and string.format("Health: %.0f", player.Character.Humanoid.Health) or "", Color3.new(1 - (player.Character.Humanoid.Health / player.Character.Humanoid.MaxHealth), player.Character.Humanoid.Health / player.Character.Humanoid.MaxHealth, 0)
+                for _, part in ipairs(player.Character:GetChildren()) do
+                    if part:IsA("BasePart") then
+                        local cham = part:FindFirstChild("Cham") or Instance.new("BoxHandleAdornment")
+                        cham.Name, cham.Size, cham.Transparency, cham.Color3, cham.AlwaysOnTop, cham.ZIndex, cham.Adornee, cham.Parent = "Cham", part.Size, 0.5, Color3.new(0, 1, 1), true, 5, part, part
+                        cham.Visible = ESPConfig.Enabled and ESPConfig.ShowChams
+                    end
+                end
+            end
+        end
     end
-    print("Current FOV value:", Config.Fov)
 end
 
--- Обработчик нажатия клавиш для изменения Prediction, FOV и переключения функции CloseRangePrediction
-UserInputService.InputBegan:Connect(function(input, gameProcessedEvent)
-    if gameProcessedEvent then return end
-
-    -- Увеличение Prediction при нажатии клавиши K
-    if input.KeyCode == Enum.KeyCode.K then
-        AdjustPrediction(true)
+local function RemoveESP(player)
+    local esp = ESPParts[player]
+    if esp then
+        esp:Destroy()
+        ESPParts[player] = nil
     end
+end
 
-    -- Уменьшение Prediction при нажатии клавиши J
-    if input.KeyCode == Enum.KeyCode.J then
-        AdjustPrediction(false)
-    end
+-- GUI настройки ESP
+local ESPDivider = Main:Divider{
+    Name = "ESP Settings"
+}
 
-    -- Увеличение FOV при нажатии клавиши L
-    if input.KeyCode == Enum.KeyCode.L then
-        AdjustFov(true)
+ESPDivider:Toggle{
+    Name = "Enable ESP",
+    Callback = function(State)
+        ESPConfig.Enabled = State
     end
+}
 
-    -- Уменьшение FOV при нажатии клавиши H
-    if input.KeyCode == Enum.KeyCode.H then
-        AdjustFov(false)
+ESPDivider:Dropdown{
+    Name = "ESP Toggle Key",
+    Options = {"C", "V", "B"},
+    Callback = function(Value)
+        ESPConfig.ToggleKey = Enum.KeyCode[Value]
     end
+}
 
-    -- Включение/выключение функции CloseRangePrediction при нажатии клавиши X
-    if input.KeyCode == Enum.KeyCode.X then
-        Config.CloseRangePrediction = not Config.CloseRangePrediction
-        print("CloseRangePrediction is now", Config.CloseRangePrediction and "enabled" or "disabled")
+ESPDivider:Toggle{
+    Name = "Show Chams",
+    Callback = function(State)
+        ESPConfig.ShowChams = State
     end
-end)
+}
+
+ESPDivider:Toggle{
+    Name = "Show Names",
+    Callback = function(State)
+        ESPConfig.ShowNames = State
+    end
+}
+
+ESPDivider:Toggle{
+    Name = "Show Distance",
+    Callback = function(State)
+        ESPConfig.ShowDistance = State
+    end
+}
+
+ESPDivider:Toggle{
+    Name = "Show Health",
+    Callback = function(State)
+        ESPConfig.ShowHealth = State
+    end
+}
+
+-- Отключение GUI
+local QuitDivider = Main:Divider{
+    Name = "Quit"
+}
+
+QuitDivider:Button{
+    Name = "Close UI Library",
+    Callback = function()
+        UI:Quit{
+            Message = "Closing UI...", 
+            Length = 1
+        }
+    end
+}
 
 RunService.RenderStepped:Connect(function()
     UpdateFov()
-    
-    -- Проверяем нажатие правой кнопки мыши
-    if UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
-        -- Если текущая цель уже есть, не обновляем её
+    if Config.Enabled and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
         if not currentTarget or not currentTarget.Character or not currentTarget.Character:FindFirstChild(Config.TargetPart) then
-            currentTarget = Closest()  -- Захватываем новую цель, если текущая недоступна
+            currentTarget = Closest()
         end
-
-        -- Наводимся на текущую цель
         if currentTarget and currentTarget.Character and currentTarget.Character:FindFirstChild(Config.TargetPart) then
             Aim(currentTarget)
         end
     else
-        -- Сбрасываем цель, если правая кнопка мыши отпущена
         currentTarget = nil
+    end
+    UpdateESP()
+end)
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if not gameProcessed and input.KeyCode == ESPConfig.ToggleKey then
+        ESPConfig.Enabled = not ESPConfig.Enabled
     end
 end)
 
-print("Fov+L, Fov-H; Pred+K, Pred-J; ESP: ( C ) on/off; CloseRangePrediction toggle: X")
+print("Script loaded, enjoy!")
