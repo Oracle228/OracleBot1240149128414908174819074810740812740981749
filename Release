@@ -156,12 +156,15 @@ local function UpdateESP()
             local esp = ESPParts[player] or CreateESP(player)
             ESPParts[player] = esp
             if player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character:FindFirstChild("Humanoid") then
-                esp.Parent, esp.ESP_NameTag.Adornee, esp.ESP_NameTag.NameLabel.Text = ESPConfig.Enabled and Camera or nil, player.Character.Head, ESPConfig.ShowNames and player.Name or ""
+                esp.Parent = ESPConfig.Enabled and Camera or nil
+                esp.ESP_NameTag.Adornee = player.Character.Head
+                esp.ESP_NameTag.NameLabel.Text = ESPConfig.ShowNames and player.Name or ""
                 if ESPConfig.ShowDistance then
                     local distance = (Players.LocalPlayer.Character and Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")) and (Players.LocalPlayer.Character.HumanoidRootPart.Position - player.Character.HumanoidRootPart.Position).Magnitude or 0
                     esp.ESP_NameTag.DistanceLabel.Text = string.format("%.1f studs", distance)
                 end
-                esp.ESP_NameTag.HealthLabel.Text, esp.ESP_NameTag.HealthLabel.TextColor3 = ESPConfig.ShowHealth and string.format("Health: %.0f", player.Character.Humanoid.Health) or "", Color3.new(1 - (player.Character.Humanoid.Health / player.Character.Humanoid.MaxHealth), player.Character.Humanoid.Health / player.Character.Humanoid.MaxHealth, 0)
+                esp.ESP_NameTag.HealthLabel.Text = ESPConfig.ShowHealth and string.format("Health: %.0f", player.Character.Humanoid.Health) or ""
+                esp.ESP_NameTag.HealthLabel.TextColor3 = Color3.new(1 - (player.Character.Humanoid.Health / player.Character.Humanoid.MaxHealth), player.Character.Humanoid.Health / player.Character.Humanoid.MaxHealth, 0)
                 for _, part in ipairs(player.Character:GetChildren()) do
                     if part:IsA("BasePart") then
                         local cham = part:FindFirstChild("Cham") or Instance.new("BoxHandleAdornment")
@@ -196,7 +199,7 @@ ESPDivider:Toggle{
 
 ESPDivider:Dropdown{
     Name = "ESP Toggle Key",
-    Options = {"C", "V", "B"},
+    Options = {"C", "V", "B", "M"},
     Callback = function(Value)
         ESPConfig.ToggleKey = Enum.KeyCode[Value]
     end
@@ -265,5 +268,3 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
         ESPConfig.Enabled = not ESPConfig.Enabled
     end
 end)
-
-print("GUI с разделением на вкладки для Aimbot и ESP создан.")
