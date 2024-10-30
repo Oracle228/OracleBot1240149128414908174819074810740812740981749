@@ -7,14 +7,21 @@ local UI = Lib:Create{
     Size = UDim2.new(0, 555, 0, 400)
 }
 
+-- Основная вкладка для аимбота
 local Main = UI:Tab{
-    Name = "099Scripts"
+    Name = "Main"
+}
+
+-- Вкладка для ESP
+local ESPTab = UI:Tab{
+    Name = "ESP"
 }
 
 local SettingsDivider = Main:Divider{
     Name = "Aimbot Settings"
 }
 
+-- Конфигурация аимбота
 local Config = {
     Enabled = true,         -- Включение аимбота
     ShowFov = true,         -- Включение отображения FOV
@@ -123,7 +130,7 @@ local function UpdateFov()
     fovCircle.Radius = Config.Fov
 end
 
--- ESP
+-- ESP функции
 local function CreateESP(player)
     local esp = Instance.new("Folder")
     esp.Name = player.Name .. "_ESP"
@@ -151,7 +158,7 @@ local function UpdateESP()
             if player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character:FindFirstChild("Humanoid") then
                 esp.Parent, esp.ESP_NameTag.Adornee, esp.ESP_NameTag.NameLabel.Text = ESPConfig.Enabled and Camera or nil, player.Character.Head, ESPConfig.ShowNames and player.Name or ""
                 if ESPConfig.ShowDistance then
-                    local distance = (LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")) and (LocalPlayer.Character.HumanoidRootPart.Position - player.Character.HumanoidRootPart.Position).Magnitude or 0
+                    local distance = (Players.LocalPlayer.Character and Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")) and (Players.LocalPlayer.Character.HumanoidRootPart.Position - player.Character.HumanoidRootPart.Position).Magnitude or 0
                     esp.ESP_NameTag.DistanceLabel.Text = string.format("%.1f studs", distance)
                 end
                 esp.ESP_NameTag.HealthLabel.Text, esp.ESP_NameTag.HealthLabel.TextColor3 = ESPConfig.ShowHealth and string.format("Health: %.0f", player.Character.Humanoid.Health) or "", Color3.new(1 - (player.Character.Humanoid.Health / player.Character.Humanoid.MaxHealth), player.Character.Humanoid.Health / player.Character.Humanoid.MaxHealth, 0)
@@ -176,7 +183,7 @@ local function RemoveESP(player)
 end
 
 -- GUI настройки ESP
-local ESPDivider = Main:Divider{
+local ESPDivider = ESPTab:Divider{
     Name = "ESP Settings"
 }
 
@@ -259,4 +266,4 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
     end
 end)
 
-print("Script loaded, enjoy!")
+print("GUI с разделением на вкладки для Aimbot и ESP создан.")
