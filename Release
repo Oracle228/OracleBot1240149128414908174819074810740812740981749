@@ -1,17 +1,30 @@
+-- Загрузка ESP
 loadstring(game:HttpGet("https://raw.githubusercontent.com/Oracle228/OracleBot1240149128414908174819074810740812740981749/refs/heads/main/Newbot1571892579082157081750125"))() -- loading esp
 
 local Config = {
-    Fov = 40,
-    Smoothness = 1,
-    Prediction = 0.03,
-    TargetPart = "Head",  -- Прицеливаемся на голову
+    -- Настройки для CameraMode
+    CameraFov = 40,
+    CameraSmoothness = 1,
+    CameraPrediction = 0.03,
+    CameraDynamicPrediction = false,
+    CameraBasePredictionStrength = 0.03,
+    CameraSensitivity = 1,  -- Чувствительность для CameraMode
+
+    -- Настройки для MouseMode
+    MouseFov = 80,
+    MouseSmoothness = 1,
+    MousePrediction = 0.03,
+    MouseDynamicPrediction = false,
+    MouseBasePredictionStrength = 0.03,
+    MouseSensitivity = 1,  -- Чувствительность для MouseMode
+
+    TargetPart = "Head",
     TeamCheck = false,
     WallCheck = false,
     FovColor = Color3.fromRGB(65, 105, 225),
-    CloseRangeDistance = 100,  -- Расстояние для отключения предикшена
-    CloseRangePrediction = false,  -- Флаг для включения/отключения функции сброса предикшена
-    DynamicPrediction = false,  -- Флаг для включения динамического предикшена
-    BasePredictionStrength = 0.03  -- Базовая сила для динамического предикшена
+    CloseRangeDistance = 100,
+    CloseRangePrediction = false,
+    MouseMode = false  -- Режим мыши (включается клавишей U)
 }
 
 local RunService = game:GetService("RunService")
@@ -19,17 +32,18 @@ local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local Camera = workspace.CurrentCamera
 
+-- Создаем круг FOV для каждого режима
 local fovCircle = Drawing.new("Circle")
 fovCircle.Visible = true
 fovCircle.Thickness = 0.8
 fovCircle.Color = Config.FovColor
 fovCircle.Filled = false
-fovCircle.Radius = Config.Fov
 fovCircle.Position = Camera.ViewportSize / 2
+fovCircle.Radius = Config.CameraFov  -- Начальное значение FOV для CameraMode
 
 local currentTarget = nil
-local originalPrediction = Config.Prediction  -- Сохраняем оригинальное значение Prediction
 
+-- Функции для работы с игроками
 local function Health(player)
     local character = player.Character
     return character and character:FindFirstChild("Humanoid") and character.Humanoid.Health > 0
@@ -52,15 +66,16 @@ local function WallCheck(player)
         raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
 
         local raycastResult = workspace:Raycast(origin, direction.Unit * direction.Magnitude, raycastParams)
-
         return raycastResult == nil
     end
     return false
 end
 
+-- Поиск ближайшей цели с учетом текущего режима FOV
 local function Closest()
     local closest, minDist = nil, math.huge
-    local screenCenter = Camera.ViewportSize / 2
+    local screenCenter = Config.MouseMode and UserInputService:GetMouseLocation() or Camera.ViewportSize / 2
+    local currentFov = Config.MouseMode and Config.MouseFov or Config.CameraFov
 
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= Players.LocalPlayer and Health(player) and not TeamCheck(player) and WallCheck(player) then
@@ -69,7 +84,7 @@ local function Closest()
                 local screenPos, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
                 local distance = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
 
-                if onScreen and distance < minDist and distance < Config.Fov then
+                if onScreen and distance < minDist and distance < currentFov then
                     minDist = distance
                     closest = player
                 end
@@ -80,13 +95,16 @@ local function Closest()
     return closest
 end
 
+-- Функция предикшена с учетом режима
 local function CalculatePredictionStrength(distance)
-    -- Динамическое увеличение предикшена в зависимости от расстояния
-    return Config.DynamicPrediction and (Config.BasePredictionStrength * (distance / Config.CloseRangeDistance)) or Config.Prediction
+    if Config.MouseMode then
+        return Config.MouseDynamicPrediction and (Config.MouseBasePredictionStrength * (distance / Config.CloseRangeDistance)) or Config.MousePrediction
+    else
+        return Config.CameraDynamicPrediction and (Config.CameraBasePredictionStrength * (distance / Config.CloseRangeDistance)) or Config.CameraPrediction
+    end
 end
 
 local function Predict(position, velocity, distance)
-    -- Если цель ближе чем 100 стадов и активирован CloseRangePrediction, предикшен сбрасывается на 0
     if Config.CloseRangePrediction and distance <= Config.CloseRangeDistance then
         return position
     else
@@ -95,117 +113,150 @@ local function Predict(position, velocity, distance)
     end
 end
 
+-- Функция для аимбота, учитывающая текущий режим и чувствительность
 local function Aim(target)
     local targetPart = target.Character[Config.TargetPart]
     if targetPart then
         local distance = (targetPart.Position - Camera.CFrame.Position).Magnitude
         local predictedPos = Predict(targetPart.Position, targetPart.Velocity, distance)
-        local direction = (predictedPos - Camera.CFrame.Position).Unit
-        Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, Camera.CFrame.Position + direction), Config.Smoothness)
+        local screenPoint = Camera:WorldToViewportPoint(predictedPos)
+
+        if Config.MouseMode then
+            -- Режим мыши: перемещаем мышь к цели с учетом MouseSensitivity
+            local mouseLocation = UserInputService:GetMouseLocation()
+            mousemoverel(
+                (screenPoint.X - mouseLocation.X) * Config.MouseSmoothness * Config.MouseSensitivity,
+                (screenPoint.Y - mouseLocation.Y) * Config.MouseSmoothness * Config.MouseSensitivity
+            )
+        else
+            -- Режим камеры: перемещаем камеру к цели с учетом CameraSensitivity
+            local direction = (predictedPos - Camera.CFrame.Position).Unit
+            Camera.CFrame = Camera.CFrame:Lerp(
+                CFrame.new(Camera.CFrame.Position, Camera.CFrame.Position + direction),
+                Config.CameraSmoothness * Config.CameraSensitivity
+            )
+        end
     end
 end
 
+-- Обновление круга FOV для текущего режима
 local function UpdateFov()
-    fovCircle.Position = Camera.ViewportSize / 2
-    fovCircle.Radius = Config.Fov  -- Обновляем радиус круга FOV при каждом кадре
+    fovCircle.Radius = Config.MouseMode and Config.MouseFov or Config.CameraFov
+    fovCircle.Position = Config.MouseMode and UserInputService:GetMouseLocation() or Camera.ViewportSize / 2
 end
 
--- Функция для изменения Prediction
-local function AdjustPrediction(increase)
-    if increase then
-        Config.Prediction = Config.Prediction + 0.01
-    else
-        Config.Prediction = Config.Prediction - 0.01
-    end
-    originalPrediction = Config.Prediction
-    print("Current Prediction value:", Config.Prediction)
+-- Переключение режима MouseMode
+local function ToggleMouseMode()
+    Config.MouseMode = not Config.MouseMode
+    print("MouseMode is now", Config.MouseMode and "enabled" or "disabled")
 end
 
--- Функция для изменения BasePredictionStrength на 0.01
-local function AdjustBasePredictionStrength(increase)
-    if increase then
-        Config.BasePredictionStrength = Config.BasePredictionStrength + 0.01
-    else
-        Config.BasePredictionStrength = Config.BasePredictionStrength - 0.01
-    end
-    print("Current Base Prediction Strength:", Config.BasePredictionStrength)
-end
-
--- Функция для изменения FOV на 10 единиц
-local function AdjustFov(increase)
-    if increase then
-        Config.Fov = Config.Fov + 10
-    else
-        Config.Fov = Config.Fov - 10
-    end
-    print("Current FOV value:", Config.Fov)
-end
-
--- Обработчик нажатия клавиш для изменения Prediction, FOV, включения CloseRangePrediction и DynamicPrediction
+-- Настройки аимбота, чувствительности и mousemode
 UserInputService.InputBegan:Connect(function(input, gameProcessedEvent)
     if gameProcessedEvent then return end
 
-    -- Увеличение Prediction при нажатии клавиши K
-    if input.KeyCode == Enum.KeyCode.K then
-        AdjustPrediction(true)
-    end
-
-    -- Уменьшение Prediction при нажатии клавиши J
-    if input.KeyCode == Enum.KeyCode.J then
-        AdjustPrediction(false)
-    end
-
-    -- Увеличение FOV при нажатии клавиши L
-    if input.KeyCode == Enum.KeyCode.L then
-        AdjustFov(true)
-    end
-
-    -- Уменьшение FOV при нажатии клавиши H
-    if input.KeyCode == Enum.KeyCode.H then
-        AdjustFov(false)
-    end
-
-    -- Включение/выключение функции CloseRangePrediction при нажатии клавиши X
-    if input.KeyCode == Enum.KeyCode.X then
+    if input.KeyCode == Enum.KeyCode.U then
+        ToggleMouseMode()
+    elseif input.KeyCode == Enum.KeyCode.K then
+        if Config.MouseMode then
+            Config.MousePrediction = Config.MousePrediction + 0.01
+            print("MouseMode Prediction:", Config.MousePrediction)
+        else
+            Config.CameraPrediction = Config.CameraPrediction + 0.01
+            print("CameraMode Prediction:", Config.CameraPrediction)
+        end
+    elseif input.KeyCode == Enum.KeyCode.J then
+        if Config.MouseMode then
+            Config.MousePrediction = Config.MousePrediction - 0.01
+            print("MouseMode Prediction:", Config.MousePrediction)
+        else
+            Config.CameraPrediction = Config.CameraPrediction - 0.01
+            print("CameraMode Prediction:", Config.CameraPrediction)
+        end
+    elseif input.KeyCode == Enum.KeyCode.L then
+        if Config.MouseMode then
+            Config.MouseFov = Config.MouseFov + 10
+            print("MouseMode FOV:", Config.MouseFov)
+        else
+            Config.CameraFov = Config.CameraFov + 10
+            print("CameraMode FOV:", Config.CameraFov)
+        end
+    elseif input.KeyCode == Enum.KeyCode.H then
+        if Config.MouseMode then
+            Config.MouseFov = Config.MouseFov - 10
+            print("MouseMode FOV:", Config.MouseFov)
+        else
+            Config.CameraFov = Config.CameraFov - 10
+            print("CameraMode FOV:", Config.CameraFov)
+        end
+    elseif input.KeyCode == Enum.KeyCode.X then
         Config.CloseRangePrediction = not Config.CloseRangePrediction
         print("CloseRangePrediction is now", Config.CloseRangePrediction and "enabled" or "disabled")
-    end
-
-    -- Включение/выключение динамического предикшена при нажатии клавиши Z
-    if input.KeyCode == Enum.KeyCode.Z then
-        Config.DynamicPrediction = not Config.DynamicPrediction
-        print("DynamicPrediction is now", Config.DynamicPrediction and "enabled" or "disabled")
-    end
-
-    -- Увеличение BasePredictionStrength при нажатии клавиши N
-    if input.KeyCode == Enum.KeyCode.N then
-        AdjustBasePredictionStrength(true)
-    end
-
-    -- Уменьшение BasePredictionStrength при нажатии клавиши B
-    if input.KeyCode == Enum.KeyCode.B then
-        AdjustBasePredictionStrength(false)
+    elseif input.KeyCode == Enum.KeyCode.Z then
+        if Config.MouseMode then
+            Config.MouseDynamicPrediction = not Config.MouseDynamicPrediction
+            print("Mouse DynamicPrediction is now", Config.MouseDynamicPrediction and "enabled" or "disabled")
+        else
+            Config.CameraDynamicPrediction = not Config.CameraDynamicPrediction
+            print("Camera DynamicPrediction is now", Config.CameraDynamicPrediction and "enabled" or "disabled")
+        end
+    elseif input.KeyCode == Enum.KeyCode.N then
+        if Config.MouseMode then
+            Config.MouseBasePredictionStrength = Config.MouseBasePredictionStrength + 0.01
+            print("MouseMode Base Prediction Strength:", Config.MouseBasePredictionStrength)
+        else
+            Config.CameraBasePredictionStrength = Config.CameraBasePredictionStrength + 0.01
+            print("CameraMode Base Prediction Strength:", Config.CameraBasePredictionStrength)
+        end
+    elseif input.KeyCode == Enum.KeyCode.B then
+        if Config.MouseMode then
+            Config.MouseBasePredictionStrength = Config.MouseBasePredictionStrength - 0.01
+            print("MouseMode Base Prediction Strength:", Config.MouseBasePredictionStrength)
+        else
+            Config.CameraBasePredictionStrength = Config.CameraBasePredictionStrength - 0.01
+            print("CameraMode Base Prediction Strength:", Config.CameraBasePredictionStrength)
+        end
+    elseif input.KeyCode == Enum.KeyCode.T then
+        if Config.MouseMode then
+            Config.MouseSensitivity = Config.MouseSensitivity + 0.1
+            print("MouseMode Sensitivity:", Config.MouseSensitivity)
+        else
+            Config.CameraSensitivity = Config.CameraSensitivity + 0.1
+            print("CameraMode Sensitivity:", Config.CameraSensitivity)
+        end
+    elseif input.KeyCode == Enum.KeyCode.Y then
+        if Config.MouseMode then
+            Config.MouseSensitivity = Config.MouseSensitivity - 0.1
+            print("MouseMode Sensitivity:", Config.MouseSensitivity)
+        else
+            Config.CameraSensitivity = Config.CameraSensitivity - 0.1
+            print("CameraMode Sensitivity:", Config.CameraSensitivity)
+        end
     end
 end)
 
+-- Основной цикл
 RunService.RenderStepped:Connect(function()
     UpdateFov()
     
-    -- Проверяем нажатие правой кнопки мыши
     if UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
-        -- Если текущая цель уже есть, не обновляем её
         if not currentTarget or not currentTarget.Character or not currentTarget.Character:FindFirstChild(Config.TargetPart) then
-            currentTarget = Closest()  -- Захватываем новую цель, если текущая недоступна
+            currentTarget = Closest()
         end
 
-        -- Наводимся на текущую цель
         if currentTarget and currentTarget.Character and currentTarget.Character:FindFirstChild(Config.TargetPart) then
             Aim(currentTarget)
         end
     else
-        -- Сбрасываем цель, если правая кнопка мыши отпущена
         currentTarget = nil
     end
 end)
 
-print("Fov+L, Fov-H; Pred+K, Pred-J; ESP: ( C ) on/off; CloseRangePrediction toggle: X; DynamicPrediction toggle: Z; DynPred+N, DynPred-B")
+-- Окончательные подсказки
+print("Fov+L, Fov-H;")
+print("Pred+K, Pred-J")
+print("DynPred+N, DynPred-B")
+print("CloseRange: X")
+print("ClosePred: Z;")
+print("Sens+T, Sens-Y")
+print("MouseMode toggle: U")
