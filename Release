@@ -211,10 +211,10 @@ UserInputService.InputBegan:Connect(function(input, gameProcessedEvent)
     elseif input.KeyCode == Enum.KeyCode.B then
         if Config.MouseMode then
             Config.MouseBasePredictionStrength = Config.MouseBasePredictionStrength - 0.01
-            print("MouseMode Base Prediction Strength:", Config.MouseBasePredictionStrength)
+            print("MouseMode Dynamic Prediction Strength:", Config.MouseBasePredictionStrength)
         else
             Config.CameraBasePredictionStrength = Config.CameraBasePredictionStrength - 0.01
-            print("CameraMode Base Prediction Strength:", Config.CameraBasePredictionStrength)
+            print("CameraMode Dynamic Prediction Strength:", Config.CameraBasePredictionStrength)
         end
     elseif input.KeyCode == Enum.KeyCode.T then
         if Config.MouseMode then
@@ -253,6 +253,7 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- Окончательные подсказки
+print("=================================================================")
 print("Fov+L, Fov-H;")
 print("Pred+K, Pred-J")
 print("DynPred+N, DynPred-B")
@@ -260,3 +261,4 @@ print("CloseRange: X")
 print("ClosePred: Z;")
 print("Sens+T, Sens-Y")
 print("MouseMode toggle: U")
+print("=================================================================")
