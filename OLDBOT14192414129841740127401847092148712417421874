@@ -1,0 +1,123 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+
+local ESPEnabled = false
+local ESPParts = {}
+
+local function CreateESP(player)
+    local esp = Instance.new("Folder")
+    esp.Name = player.Name .. "_ESP"
+    
+    local nameTag = Instance.new("BillboardGui")
+    nameTag.Name = "ESP_NameTag"
+    nameTag.Size = UDim2.new(0, 200, 0, 70)
+    nameTag.AlwaysOnTop = true
+    nameTag.StudsOffset = Vector3.new(0, 3, 0)
+    nameTag.Parent = esp
+
+    local nameLabel = Instance.new("TextLabel")
+    nameLabel.Name = "NameLabel"
+    nameLabel.Size = UDim2.new(1, 0, 0, 20)
+    nameLabel.BackgroundTransparency = 1
+    nameLabel.TextColor3 = Color3.new(0, 50, 100)
+    nameLabel.TextStrokeColor3 = Color3.new(0, 0, 0)
+    nameLabel.TextStrokeTransparency = 0
+    nameLabel.Font = Enum.Font.SourceSansBold
+    nameLabel.TextScaled = true
+    nameLabel.Parent = nameTag
+
+    local distanceLabel = Instance.new("TextLabel")
+    distanceLabel.Name = "DistanceLabel"
+    distanceLabel.Size = UDim2.new(1, 0, 0, 20)
+    distanceLabel.Position = UDim2.new(0, 0, 0, 20)
+    distanceLabel.BackgroundTransparency = 1
+    distanceLabel.TextColor3 = Color3.new(0, 50, 100)
+    distanceLabel.TextStrokeColor3 = Color3.new(0, 0, 0)
+    distanceLabel.TextStrokeTransparency = 0
+    distanceLabel.Font = Enum.Font.SourceSansBold
+    distanceLabel.TextScaled = true
+    distanceLabel.Parent = nameTag
+
+    local healthLabel = Instance.new("TextLabel")
+    healthLabel.Name = "HealthLabel"
+    healthLabel.Size = UDim2.new(1, 0, 0, 20)
+    healthLabel.Position = UDim2.new(0, 0, 0, 40)
+    healthLabel.BackgroundTransparency = 1
+    healthLabel.TextColor3 = Color3.new(50, 100, 100)
+    healthLabel.TextStrokeColor3 = Color3.new(0, 0, 0)
+    healthLabel.TextStrokeTransparency = 0.7
+    healthLabel.Font = Enum.Font.SourceSansBold
+    healthLabel.TextScaled = true
+    healthLabel.Parent = nameTag
+
+    esp.Parent = Camera
+
+    return esp
+end
+
+local function UpdateESP()
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            local esp = ESPParts[player]
+            if not esp then
+                esp = CreateESP(player)
+                ESPParts[player] = esp
+            end
+
+            if player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character:FindFirstChild("Humanoid") then
+                local humanoidRootPart = player.Character.HumanoidRootPart
+                local humanoid = player.Character.Humanoid
+                local head = player.Character:FindFirstChild("Head")
+
+                esp.Parent = ESPEnabled and Camera or nil
+
+                if ESPEnabled then
+                    local distance = (LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")) and 
+                                     (LocalPlayer.Character.HumanoidRootPart.Position - humanoidRootPart.Position).Magnitude or 0
+
+                    esp.ESP_NameTag.Adornee = head
+                    esp.ESP_NameTag.NameLabel.Text = player.Name
+                    esp.ESP_NameTag.DistanceLabel.Text = string.format("%.1f studs", distance)
+                    esp.ESP_NameTag.HealthLabel.Text = string.format("Health: %.0f", humanoid.Health)
+                    
+                    local healthPercentage = humanoid.Health / humanoid.MaxHealth
+                    esp.ESP_NameTag.HealthLabel.TextColor3 = Color3.new(1 - healthPercentage, healthPercentage, 0)
+                end
+            end
+        end
+    end
+end
+
+local function RemoveESP(player)
+    local esp = ESPParts[player]
+    if esp then
+        esp:Destroy()
+        ESPParts[player] = nil
+    end
+end
+
+Players.PlayerAdded:Connect(function(player)
+    player.CharacterAdded:Connect(function(character)
+        RemoveESP(player)
+        if ESPEnabled then
+            ESPParts[player] = CreateESP(player)
+        end
+    end)
+end)
+
+Players.PlayerRemoving:Connect(RemoveESP)
+
+RunService.RenderStepped:Connect(function()
+    UpdateESP()
+end)
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if not gameProcessed and input.KeyCode == Enum.KeyCode.C then
+        ESPEnabled = not ESPEnabled
+        print("ESP " .. (ESPEnabled and "Enabled" or "Disabled"))
+    end
+end)
