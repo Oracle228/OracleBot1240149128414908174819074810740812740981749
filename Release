@@ -1,5 +1,6 @@
 -- Загрузка ESP
 loadstring(game:HttpGet("https://raw.githubusercontent.com/Oracle228/OracleBot1240149128414908174819074810740812740981749/refs/heads/main/Newbot1571892579082157081750125"))() -- loading esp
+loadstring(game:HttpGet("https://raw.githubusercontent.com/Oracle228/OracleBot1240149128414908174819074810740812740981749/refs/heads/main/NclipBot12313146190561905619050918562109856109852"))() -- noclip
 
 local Config = {
     -- Настройки для CameraMode
@@ -279,6 +280,7 @@ print("Fov+L, Fov-K;")
 print("Dynamic Prediction+H, Dynamic Prediction-J;")
 print("Sens+T, Sens-Y")
 print("MouseMode toggle: U")
+print("Noclip toggle: G")
 print("Toggle bindings: P")
 print("Silent Aim toggle: V (Silent Aim Turning off AimBot Automaticly)")
 print("Silent Aim Method cycle: B")
