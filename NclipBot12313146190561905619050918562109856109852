@@ -28,7 +28,6 @@ end
 -- Функция для переключения состояния бинда на ноуклип
 local function toggleNoclipBind()
     noclipBindEnabled = not noclipBindEnabled
-    print(noclipBindEnabled and "Noclip bind enabled" or "Noclip bind disabled")  -- Вывод в консоль
 end
 
 -- Обработка нажатия клавиш G и P
