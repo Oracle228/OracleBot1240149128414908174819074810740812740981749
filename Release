@@ -5,7 +5,6 @@ local Config = {
     -- Настройки для CameraMode
     CameraFov = 40,
     CameraSmoothness = 1,
-    CameraPrediction = 0.03,
     CameraDynamicPrediction = false,
     CameraBasePredictionStrength = 0.03,
     CameraSensitivity = 1,
@@ -13,7 +12,6 @@ local Config = {
     -- Настройки для MouseMode
     MouseFov = 80,
     MouseSmoothness = 1,
-    MousePrediction = 0.03,
     MouseDynamicPrediction = false,
     MouseBasePredictionStrength = 0.03,
     MouseSensitivity = 1,
@@ -22,9 +20,17 @@ local Config = {
     TeamCheck = false,
     WallCheck = false,
     FovColor = Color3.fromRGB(65, 105, 225),
-    CloseRangeDistance = 100,
-    CloseRangePrediction = false,
-    MouseMode = false
+    MouseMode = false,
+    AimBotEnabled = true  -- Добавлено: Переключение аимбота
+}
+
+local SilentAim = {
+    Enabled = false,
+    TargetPart = "HumanoidRootPart",
+    Methods = {"Raycast", "FindPartOnRay", "FindPartOnRayWithWhitelist", "FindPartOnRayWithIgnoreList", "Mouse.Hit/Target"},
+    MethodIndex = 1,
+    HitChance = 100,
+    VisibleCheck = false
 }
 
 local RunService = game:GetService("RunService")
@@ -71,54 +77,46 @@ local function WallCheck(player)
     return false
 end
 
--- Поиск ближайшей цели с учетом текущего режима FOV
-local function Closest()
-    local closest, minDist = nil, math.huge
-    local screenCenter = Config.MouseMode and UserInputService:GetMouseLocation() or Camera.ViewportSize / 2
+-- Silent Aim функция для определения ближайшего игрока
+local function GetClosestPlayer()
+    local closestPlayer = nil
+    local minDist = math.huge
+    local screenCenter = Camera.ViewportSize / 2
     local currentFov = Config.MouseMode and Config.MouseFov or Config.CameraFov
 
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= Players.LocalPlayer and Health(player) and not TeamCheck(player) and WallCheck(player) then
-            local targetPart = player.Character and player.Character:FindFirstChild(Config.TargetPart)
+            local targetPart = player.Character and player.Character:FindFirstChild(SilentAim.TargetPart)
             if targetPart then
                 local screenPos, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
                 local distance = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
 
                 if onScreen and distance < minDist and distance < currentFov then
                     minDist = distance
-                    closest = player
+                    closestPlayer = player
                 end
             end
         end
     end
-
-    return closest
+    return closestPlayer
 end
 
--- Функция предикшена с учетом режима
-local function CalculatePredictionStrength(distance)
-    if Config.MouseMode then
-        return Config.MouseDynamicPrediction and (Config.MouseBasePredictionStrength * (distance / Config.CloseRangeDistance)) or Config.MousePrediction
-    else
-        return Config.CameraDynamicPrediction and (Config.CameraBasePredictionStrength * (distance / Config.CloseRangeDistance)) or Config.CameraPrediction
+-- Silent Aim метод
+local function SilentAimMethod()
+    if SilentAim.Enabled then
+        local targetPlayer = GetClosestPlayer()
+        if targetPlayer and math.random(0, 100) <= SilentAim.HitChance then
+            return targetPlayer.Character[SilentAim.TargetPart].Position
+        end
     end
-end
-
-local function Predict(position, velocity, distance)
-    if Config.CloseRangePrediction and distance <= Config.CloseRangeDistance then
-        return position
-    else
-        local predictionStrength = CalculatePredictionStrength(distance)
-        return position + velocity * predictionStrength
-    end
+    return nil
 end
 
 -- Функция для аимбота, учитывающая текущий режим и чувствительность
 local function Aim(target)
     local targetPart = target.Character[Config.TargetPart]
     if targetPart then
-        local distance = (targetPart.Position - Camera.CFrame.Position).Magnitude
-        local predictedPos = Predict(targetPart.Position, targetPart.Velocity, distance)
+        local predictedPos = targetPart.Position + targetPart.Velocity * Config.CameraBasePredictionStrength
         local screenPoint = Camera:WorldToViewportPoint(predictedPos)
 
         if Config.MouseMode then
@@ -157,6 +155,27 @@ local function ToggleBindings()
     print("Bindings are now", bindingsEnabled and "enabled" or "disabled")
 end
 
+-- Переключение метода Silent Aim
+local function ToggleSilentAimMethod()
+    SilentAim.MethodIndex = SilentAim.MethodIndex % #SilentAim.Methods + 1
+    print("Silent Aim Method is now:", SilentAim.Methods[SilentAim.MethodIndex])
+end
+
+-- Включение/выключение Silent Aim
+local function ToggleSilentAim()
+    SilentAim.Enabled = not SilentAim.Enabled
+    if SilentAim.Enabled then
+        Config.AimBotEnabled = false  -- Отключаем основной аимбот при включении Silent Aim
+    end
+    print("Silent Aim is now", SilentAim.Enabled and "enabled" or "disabled")
+end
+
+-- Включение/выключение основного аимбота
+local function ToggleAimBot()
+    Config.AimBotEnabled = not Config.AimBotEnabled
+    print("AimBot is now", Config.AimBotEnabled and "enabled" or "disabled")
+end
+
 -- Настройки аимбота, чувствительности и mousemode
 UserInputService.InputBegan:Connect(function(input, gameProcessedEvent)
     if gameProcessedEvent then return end
@@ -172,22 +191,6 @@ UserInputService.InputBegan:Connect(function(input, gameProcessedEvent)
 
     if input.KeyCode == Enum.KeyCode.U then
         ToggleMouseMode()
-    elseif input.KeyCode == Enum.KeyCode.K then
-        if Config.MouseMode then
-            Config.MousePrediction = Config.MousePrediction + 0.01
-            print("MouseMode Prediction:", Config.MousePrediction)
-        else
-            Config.CameraPrediction = Config.CameraPrediction + 0.01
-            print("CameraMode Prediction:", Config.CameraPrediction)
-        end
-    elseif input.KeyCode == Enum.KeyCode.J then
-        if Config.MouseMode then
-            Config.MousePrediction = Config.MousePrediction - 0.01
-            print("MouseMode Prediction:", Config.MousePrediction)
-        else
-            Config.CameraPrediction = Config.CameraPrediction - 0.01
-            print("CameraMode Prediction:", Config.CameraPrediction)
-        end
     elseif input.KeyCode == Enum.KeyCode.L then
         if Config.MouseMode then
             Config.MouseFov = Config.MouseFov + 10
@@ -196,7 +199,7 @@ UserInputService.InputBegan:Connect(function(input, gameProcessedEvent)
             Config.CameraFov = Config.CameraFov + 10
             print("CameraMode FOV:", Config.CameraFov)
         end
-    elseif input.KeyCode == Enum.KeyCode.H then
+    elseif input.KeyCode == Enum.KeyCode.K then
         if Config.MouseMode then
             Config.MouseFov = Config.MouseFov - 10
             print("MouseMode FOV:", Config.MouseFov)
@@ -204,18 +207,27 @@ UserInputService.InputBegan:Connect(function(input, gameProcessedEvent)
             Config.CameraFov = Config.CameraFov - 10
             print("CameraMode FOV:", Config.CameraFov)
         end
+    elseif input.KeyCode == Enum.KeyCode.V then
+        ToggleSilentAim()
+    elseif input.KeyCode == Enum.KeyCode.B then
+        ToggleSilentAimMethod()
     elseif input.KeyCode == Enum.KeyCode.X then
-        Config.CloseRangePrediction = not Config.CloseRangePrediction
-        print("CloseRangePrediction is now", Config.CloseRangePrediction and "enabled" or "disabled")
-    elseif input.KeyCode == Enum.KeyCode.Z then
         if Config.MouseMode then
             Config.MouseDynamicPrediction = not Config.MouseDynamicPrediction
-            print("Mouse DynamicPrediction is now", Config.MouseDynamicPrediction and "enabled" or "disabled")
+            print("MouseMode Dynamic Prediction:", Config.MouseDynamicPrediction and "enabled" or "disabled")
         else
             Config.CameraDynamicPrediction = not Config.CameraDynamicPrediction
-            print("Camera DynamicPrediction is now", Config.CameraDynamicPrediction and "enabled" or "disabled")
+            print("CameraMode Dynamic Prediction:", Config.CameraDynamicPrediction and "enabled" or "disabled")
         end
-    elseif input.KeyCode == Enum.KeyCode.N then
+    elseif input.KeyCode == Enum.KeyCode.H then
+        if Config.MouseMode then
+            Config.MouseBasePredictionStrength = Config.MouseBasePredictionStrength - 0.01
+            print("MouseMode Base Prediction Strength:", Config.MouseBasePredictionStrength)
+        else
+            Config.CameraBasePredictionStrength = Config.CameraBasePredictionStrength - 0.01
+            print("CameraMode Base Prediction Strength:", Config.CameraBasePredictionStrength)
+        end
+    elseif input.KeyCode == Enum.KeyCode.J then
         if Config.MouseMode then
             Config.MouseBasePredictionStrength = Config.MouseBasePredictionStrength + 0.01
             print("MouseMode Base Prediction Strength:", Config.MouseBasePredictionStrength)
@@ -223,14 +235,8 @@ UserInputService.InputBegan:Connect(function(input, gameProcessedEvent)
             Config.CameraBasePredictionStrength = Config.CameraBasePredictionStrength + 0.01
             print("CameraMode Base Prediction Strength:", Config.CameraBasePredictionStrength)
         end
-    elseif input.KeyCode == Enum.KeyCode.B then
-        if Config.MouseMode then
-            Config.MouseBasePredictionStrength = Config.MouseBasePredictionStrength - 0.01
-            print("MouseMode Dynamic Prediction Strength:", Config.MouseBasePredictionStrength)
-        else
-            Config.CameraBasePredictionStrength = Config.CameraBasePredictionStrength - 0.01
-            print("CameraMode Dynamic Prediction Strength:", Config.CameraBasePredictionStrength)
-        end
+    elseif input.KeyCode == Enum.KeyCode.Z then
+        ToggleAimBot()
     elseif input.KeyCode == Enum.KeyCode.T then
         if Config.MouseMode then
             Config.MouseSensitivity = Config.MouseSensitivity + 0.1
@@ -254,9 +260,9 @@ end)
 RunService.RenderStepped:Connect(function()
     UpdateFov()
     
-    if UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
+    if Config.AimBotEnabled and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
         if not currentTarget or not currentTarget.Character or not currentTarget.Character:FindFirstChild(Config.TargetPart) then
-            currentTarget = Closest()
+            currentTarget = GetClosestPlayer()
         end
 
         if currentTarget and currentTarget.Character and currentTarget.Character:FindFirstChild(Config.TargetPart) then
@@ -269,12 +275,13 @@ end)
 
 -- Подсказки по биндам
 print("=================================================================")
-print("Fov+L, Fov-H;")
-print("Pred+K, Pred-J")
-print("DynPred+N, DynPred-B")
-print("CloseRange: X")
-print("ClosePred: Z;")
+print("Fov+L, Fov-K;")
+print("Dynamic Prediction+H, Dynamic Prediction-J;")
 print("Sens+T, Sens-Y")
 print("MouseMode toggle: U")
 print("Toggle bindings: P")
+print("Silent Aim toggle: V (Silent Aim отключает обычный аимбот)")
+print("Silent Aim Method cycle: B")
+print("Toggle AimBot: Z")
+print("Esp: C")
 print("=================================================================")
