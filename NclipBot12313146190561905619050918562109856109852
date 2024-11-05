@@ -1,5 +1,6 @@
--- Ноуклип на кнопку G. Аккуратный режим.
+-- Ноуклип на кнопку G. Отключение бинда на кнопку P.
 local noclipEnabled = false
+local noclipBindEnabled = true
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
@@ -24,11 +25,24 @@ local function toggleNoclipMode()
     print(noclipEnabled and "Noclip enabled" or "Noclip disabled")  -- Вывод в консоль
 end
 
--- Обработка нажатия клавиши G
+-- Функция для переключения состояния бинда на ноуклип
+local function toggleNoclipBind()
+    noclipBindEnabled = not noclipBindEnabled
+    print(noclipBindEnabled and "Noclip bind enabled" or "Noclip bind disabled")  -- Вывод в консоль
+end
+
+-- Обработка нажатия клавиш G и P
 UserInputService.InputBegan:Connect(function(input, gameProcessedEvent)
     if gameProcessedEvent then return end
-    if input.KeyCode == Enum.KeyCode.G then
+    
+    -- Переключение состояния ноуклипа на клавишу G, если бинд включен
+    if input.KeyCode == Enum.KeyCode.G and noclipBindEnabled then
         toggleNoclipMode()
+    end
+    
+    -- Переключение бинда на клавишу P
+    if input.KeyCode == Enum.KeyCode.P then
+        toggleNoclipBind()
     end
 end)
 
