@@ -20,7 +20,6 @@ local UserInputService = game:GetService("UserInputService")
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if input.KeyCode == Enum.KeyCode.C and not gameProcessed then
         ESPEnabled = not ESPEnabled
-        print("ESP " .. (ESPEnabled and "включен" or "выключен"))
     end
 end)
 
