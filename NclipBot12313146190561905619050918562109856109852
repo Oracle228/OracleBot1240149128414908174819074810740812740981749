@@ -1,0 +1,48 @@
+-- Ноуклип на кнопку G. Аккуратный режим.
+local noclipEnabled = false
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+-- Получаем персонаж игрока
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+
+-- Функция для управления состоянием коллизии частей
+local function toggleNoclip(state)
+    for _, part in pairs(character:GetDescendants()) do
+        if part:IsA("BasePart") and part.CanCollide ~= not state then
+            part.CanCollide = not state
+        end
+    end
+end
+
+-- Функция для переключения ноуклипа
+local function toggleNoclipMode()
+    noclipEnabled = not noclipEnabled
+    toggleNoclip(noclipEnabled)
+    print(noclipEnabled and "Noclip enabled" or "Noclip disabled")  -- Вывод в консоль
+end
+
+-- Обработка нажатия клавиши G
+UserInputService.InputBegan:Connect(function(input, gameProcessedEvent)
+    if gameProcessedEvent then return end
+    if input.KeyCode == Enum.KeyCode.G then
+        toggleNoclipMode()
+    end
+end)
+
+-- Цикл для обновления состояния ноуклипа, когда включен
+RunService.Stepped:Connect(function()
+    if noclipEnabled then
+        toggleNoclip(true)
+    end
+end)
+
+-- Если персонаж перезагружается, обновляем ссылку
+player.CharacterAdded:Connect(function(newCharacter)
+    character = newCharacter
+    if noclipEnabled then
+        toggleNoclip(true)
+    end
+end)
