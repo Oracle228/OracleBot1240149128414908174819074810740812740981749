@@ -1,0 +1,614 @@
+-- Первый скрипт
+loadstring(game:HttpGet("https://raw.githubusercontent.com/Oracle228/OracleBot1240149128414908174819074810740812740981749/refs/heads/main/Newbot1571892579082157081750125"))() -- loading esp
+loadstring(game:HttpGet("https://raw.githubusercontent.com/Oracle228/OracleBot1240149128414908174819074810740812740981749/refs/heads/main/NclipBot12313146190561905619050918562109856109852"))() -- noclip
+
+local Config = {
+    CameraFov = 40,
+    CameraSmoothness = 1,
+    CameraDynamicPrediction = false,
+    CameraBasePredictionStrength = 0.03,
+    CameraSensitivity = 1,
+    MouseFov = 80,
+    MouseSmoothness = 1,
+    MouseDynamicPrediction = false,
+    MouseBasePredictionStrength = 0.03,
+    MouseSensitivity = 1,
+    TargetPart = "Head",
+    TeamCheck = false,
+    WallCheck = false,
+    FovColor = Color3.fromRGB(65, 105, 225),
+    MouseMode = false,
+    AimBotEnabled = true
+}
+
+local SilentAim = {
+    Enabled = false,
+    TargetPart = "HumanoidRootPart",
+    Methods = {"Raycast", "FindPartOnRay", "FindPartOnRayWithWhitelist", "FindPartOnRayWithIgnoreList", "Mouse.Hit/Target"},
+    MethodIndex = 1,
+    HitChance = 100,
+    VisibleCheck = false
+}
+
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local Camera = workspace.CurrentCamera
+local fovCircle = Drawing.new("Circle")
+fovCircle.Visible = true
+fovCircle.Thickness = 0.8
+fovCircle.Color = Config.FovColor
+fovCircle.Filled = false
+fovCircle.Position = Camera.ViewportSize / 2
+fovCircle.Radius = Config.CameraFov
+
+local currentTarget = nil
+local bindingsEnabled = true
+local noclipEnabled = false
+local noclipBindEnabled = true
+
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+
+local function Health(player)
+    local character = player.Character
+    return character and character:FindFirstChild("Humanoid") and character.Humanoid.Health > 0
+end
+
+local function TeamCheck(player)
+    return Config.TeamCheck and player.Team == Players.LocalPlayer.Team
+end
+
+local function WallCheck(player)
+    if not Config.WallCheck then return true end
+    local character = player.Character
+    if character and character:FindFirstChild(Config.TargetPart) then
+        local targetPart = character[Config.TargetPart]
+        local origin = Camera.CFrame.Position
+        local direction = (targetPart.Position - origin)
+        local raycastParams = RaycastParams.new()
+        raycastParams.FilterDescendantsInstances = {Players.LocalPlayer.Character, player.Character}
+        raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+
+        local raycastResult = workspace:Raycast(origin, direction.Unit * direction.Magnitude, raycastParams)
+        return raycastResult == nil
+    end
+    return false
+end
+
+local function GetClosestPlayer()
+    local closestPlayer = nil
+    local minDist = math.huge
+    local screenCenter = Camera.ViewportSize / 2
+    local currentFov = Config.MouseMode and Config.MouseFov or Config.CameraFov
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= Players.LocalPlayer and Health(player) and not TeamCheck(player) and WallCheck(player) then
+            local targetPart = player.Character and player.Character:FindFirstChild(SilentAim.TargetPart)
+            if targetPart then
+                local screenPos, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
+                local distance = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
+
+                if onScreen and distance < minDist and distance < currentFov then
+                    minDist = distance
+                    closestPlayer = player
+                end
+            end
+        end
+    end
+    return closestPlayer
+end
+
+local function SilentAimMethod()
+    if SilentAim.Enabled then
+        local targetPlayer = GetClosestPlayer()
+        if targetPlayer and math.random(0, 100) <= SilentAim.HitChance then
+            return targetPlayer.Character[SilentAim.TargetPart].Position
+        end
+    end
+    return nil
+end
+
+local function Aim(target)
+    local targetPart = target.Character[Config.TargetPart]
+    if targetPart then
+        local predictedPos = targetPart.Position + targetPart.Velocity * Config.CameraBasePredictionStrength
+        local screenPoint = Camera:WorldToViewportPoint(predictedPos)
+
+        if Config.MouseMode then
+            local mouseLocation = UserInputService:GetMouseLocation()
+            mousemoverel(
+                (screenPoint.X - mouseLocation.X) * Config.MouseSmoothness * Config.MouseSensitivity,
+                (screenPoint.Y - mouseLocation.Y) * Config.MouseSmoothness * Config.MouseSensitivity
+            )
+        else
+            local direction = (predictedPos - Camera.CFrame.Position).Unit
+            Camera.CFrame = Camera.CFrame:Lerp(
+                CFrame.new(Camera.CFrame.Position, Camera.CFrame.Position + direction),
+                Config.CameraSmoothness * Config.CameraSensitivity
+            )
+        end
+    end
+end
+
+local function UpdateFov()
+    fovCircle.Radius = Config.MouseMode and Config.MouseFov or Config.CameraFov
+    fovCircle.Position = Config.MouseMode and UserInputService:GetMouseLocation() or Camera.ViewportSize / 2
+end
+
+local function ToggleMouseMode()
+    Config.MouseMode = not Config.MouseMode
+    print("MouseMode is now", Config.MouseMode and "enabled" or "disabled")
+end
+
+local function ToggleBindings()
+    bindingsEnabled = not bindingsEnabled
+    print("Bindings are now", bindingsEnabled and "enabled" or "disabled")
+end
+
+local function ToggleSilentAimMethod()
+    SilentAim.MethodIndex = SilentAim.MethodIndex % #SilentAim.Methods + 1
+    print("Silent Aim Method is now:", SilentAim.Methods[SilentAim.MethodIndex])
+end
+
+local function ToggleSilentAim()
+    SilentAim.Enabled = not SilentAim.Enabled
+    if SilentAim.Enabled then
+        Config.AimBotEnabled = false
+    end
+    print("Silent Aim is now", SilentAim.Enabled and "enabled" or "disabled")
+end
+
+local function ToggleAimBot()
+    Config.AimBotEnabled = not Config.AimBotEnabled
+    print("AimBot is now", Config.AimBotEnabled and "enabled" or "disabled")
+end
+
+local function toggleNoclip(state)
+    for _, part in pairs(character:GetDescendants()) do
+        if part:IsA("BasePart") and part.CanCollide ~= not state then
+            part.CanCollide = not state
+        end
+    end
+end
+
+local function toggleNoclipMode()
+    noclipEnabled = not noclipEnabled
+    toggleNoclip(noclipEnabled)
+    print(noclipEnabled and "Noclip enabled" or "Noclip disabled")
+end
+
+local function toggleNoclipBind()
+    noclipBindEnabled = not noclipBindEnabled
+end
+
+UserInputService.InputBegan:Connect(function(input, gameProcessedEvent)
+    if gameProcessedEvent then return end
+
+    if input.KeyCode == Enum.KeyCode.P then
+        ToggleBindings()
+        toggleNoclipBind()
+        return
+    end
+
+    if not bindingsEnabled then return end
+
+    if input.KeyCode == Enum.KeyCode.U then
+        ToggleMouseMode()
+    elseif input.KeyCode == Enum.KeyCode.L then
+        if Config.MouseMode then
+            Config.MouseFov = Config.MouseFov + 10
+            print("MouseMode FOV:", Config.MouseFov)
+        else
+            Config.CameraFov = Config.CameraFov + 10
+            print("CameraMode FOV:", Config.CameraFov)
+        end
+    elseif input.KeyCode == Enum.KeyCode.K then
+        if Config.MouseMode then
+            Config.MouseFov = Config.MouseFov - 10
+            print("MouseMode FOV:", Config.MouseFov)
+        else
+            Config.CameraFov = Config.CameraFov - 10
+            print("CameraMode FOV:", Config.CameraFov)
+        end
+    elseif input.KeyCode == Enum.KeyCode.V then
+        ToggleSilentAim()
+    elseif input.KeyCode == Enum.KeyCode.B then
+        ToggleSilentAimMethod()
+    elseif input.KeyCode == Enum.KeyCode.X then
+        if Config.MouseMode then
+            Config.MouseDynamicPrediction = not Config.MouseDynamicPrediction
+            print("MouseMode Dynamic Prediction:", Config.MouseDynamicPrediction and "enabled" or "disabled")
+        else
+            Config.CameraDynamicPrediction = not Config.CameraDynamicPrediction
+            print("CameraMode Dynamic Prediction:", Config.CameraDynamicPrediction and "enabled" or "disabled")
+        end
+    elseif input.KeyCode == Enum.KeyCode.H then
+        if Config.MouseMode then
+            Config.MouseBasePredictionStrength = Config.MouseBasePredictionStrength - 0.01
+            print("MouseMode Base Prediction Strength:", Config.MouseBasePredictionStrength)
+        else
+            Config.CameraBasePredictionStrength = Config.CameraBasePredictionStrength - 0.01
+            print("CameraMode Base Prediction Strength:", Config.CameraBasePredictionStrength)
+        end
+    elseif input.KeyCode == Enum.KeyCode.J then
+        if Config.MouseMode then
+            Config.MouseBasePredictionStrength = Config.MouseBasePredictionStrength + 0.01
+            print("MouseMode Base Prediction Strength:", Config.MouseBasePredictionStrength)
+        else
+            Config.CameraBasePredictionStrength = Config.CameraBasePredictionStrength + 0.01
+            print("CameraMode Base Prediction Strength:", Config.CameraBasePredictionStrength)
+        end
+    elseif input.KeyCode == Enum.KeyCode.Z then
+        ToggleAimBot()
+    elseif input.KeyCode == Enum.KeyCode.T then
+        if Config.MouseMode then
+            Config.MouseSensitivity = Config.MouseSensitivity + 0.1
+            print("MouseMode Sensitivity:", Config.MouseSensitivity)
+        else
+            Config.CameraSensitivity = Config.CameraSensitivity + 0.1
+            print("CameraMode Sensitivity:", Config.CameraSensitivity)
+        end
+    elseif input.KeyCode == Enum.KeyCode.Y then
+        if Config.MouseMode then
+            Config.MouseSensitivity = Config.MouseSensitivity - 0.1
+            print("MouseMode Sensitivity:", Config.MouseSensitivity)
+        else
+            Config.CameraSensitivity = Config.CameraSensitivity - 0.1
+            print("CameraMode Sensitivity:", Config.CameraSensitivity)
+        end
+    elseif input.KeyCode == Enum.KeyCode.G and noclipBindEnabled then
+        toggleNoclipMode()
+    end
+end)
+
+RunService.RenderStepped:Connect(function()
+    UpdateFov()
+    if Config.AimBotEnabled and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
+        if not currentTarget or not currentTarget.Character or not currentTarget.Character:FindFirstChild(Config.TargetPart) then
+            currentTarget = GetClosestPlayer()
+        end
+        if currentTarget and currentTarget.Character and currentTarget.Character:FindFirstChild(Config.TargetPart) then
+            Aim(currentTarget)
+        end
+    else
+        currentTarget = nil
+    end
+end)
+
+RunService.Stepped:Connect(function()
+    if noclipEnabled then
+        toggleNoclip(true)
+    end
+end)
+
+player.CharacterAdded:Connect(function(newCharacter)
+    character = newCharacter
+    if noclipEnabled then
+        toggleNoclip(true)
+    end
+end)
+
+print("=================================================================")
+print("Fov+L, Fov-K;")
+print("Dynamic Prediction+H, Dynamic Prediction-J;")
+print("Sens+T, Sens-Y")
+print("MouseMode toggle: U")
+print("Noclip toggle: G")
+print("Toggle bindings: P")
+print("Silent Aim toggle: V (Silent Aim Turning off AimBot Automatically)")
+print("Silent Aim Method cycle: B")
+print("Toggle AimBot: Z")
+print("Esp: C")
+print("Toggle Prediction: X")
+print("=================================================================")
+
+-- Второй скрипт
+local ESPEnabled = false
+local ESPParts = {}
+local CKeyBindEnabled = true
+local Settings = {
+    Box_Color = Color3.fromRGB(255, 0, 0),
+    Box_Thickness = 2,
+    Team_Check = false,
+    Team_Color = false,
+    Autothickness = true
+}
+
+local function CreateESP(player)
+    local esp = Instance.new("Folder")
+    esp.Name = player.Name .. "_ESP"
+    
+    local nameTag = Instance.new("BillboardGui")
+    nameTag.Name = "ESP_NameTag"
+    nameTag.Size = UDim2.new(0, 200, 0, 75)
+    nameTag.AlwaysOnTop = true
+    nameTag.StudsOffset = Vector3.new(0, -0.4, 0)
+    nameTag.Parent = esp
+
+    local nameLabel = Instance.new("TextLabel")
+    nameLabel.Name = "NameLabel"
+    nameLabel.Size = UDim2.new(1, 0, 0, 20)
+    nameLabel.BackgroundTransparency = 1
+    nameLabel.TextColor3 = Color3.new(0.25, 1, 1)
+    nameLabel.TextStrokeColor3 = Color3.new(0, 0, 0)
+    nameLabel.TextStrokeTransparency = 0
+    nameLabel.Font = Enum.Font.Arcade
+    nameLabel.TextScaled = false
+    nameLabel.TextSize = 14
+    nameLabel.Parent = nameTag
+
+    local distanceLabel = Instance.new("TextLabel")
+    distanceLabel.Name = "DistanceLabel"
+    distanceLabel.Size = UDim2.new(1, 0, 0, 20)
+    distanceLabel.Position = UDim2.new(0, 0, 0, 20)
+    distanceLabel.BackgroundTransparency = 1
+    distanceLabel.TextColor3 = Color3.new(0.25, 1, 1)
+    distanceLabel.TextStrokeColor3 = Color3.new(0, 0, 0)
+    distanceLabel.TextStrokeTransparency = 0
+    distanceLabel.Font = Enum.Font.Arcade
+    distanceLabel.TextScaled = false
+    distanceLabel.TextSize = 14
+    distanceLabel.Parent = nameTag
+
+    local healthLabel = Instance.new("TextLabel")
+    healthLabel.Name = "HealthLabel"
+    healthLabel.Size = UDim2.new(1, 0, 0, 20)
+    healthLabel.Position = UDim2.new(0, 0, 0, 40)
+    healthLabel.BackgroundTransparency = 1
+    healthLabel.TextStrokeColor3 = Color3.new(0, 0, 0)
+    healthLabel.TextStrokeTransparency = 0
+    healthLabel.Font = Enum.Font.Arcade
+    healthLabel.TextScaled = false
+    healthLabel.TextSize = 14
+    healthLabel.Parent = nameTag
+
+    local tracerLine = Instance.new("LineHandleAdornment")
+    tracerLine.Name = "TracerLine"
+    tracerLine.Thickness = 2
+    tracerLine.Color3 = Color3.new(0, 1, 1)
+    tracerLine.Transparency = 0.25
+    tracerLine.Adornee = workspace
+    tracerLine.Parent = esp
+
+    esp.Parent = Camera
+    return esp
+end
+
+local function UpdateESP()
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            local esp = ESPParts[player]
+            if not esp then
+                esp = CreateESP(player)
+                ESPParts[player] = esp
+            end
+
+            if player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character:FindFirstChild("Humanoid") then
+                local humanoidRootPart = player.Character.HumanoidRootPart
+                local humanoid = player.Character.Humanoid
+                local head = player.Character:FindFirstChild("Head")
+
+                esp.Parent = ESPEnabled and Camera or nil
+
+                if ESPEnabled then
+                    local distance = (LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")) and 
+                                     (LocalPlayer.Character.HumanoidRootPart.Position - humanoidRootPart.Position).Magnitude or 0
+
+                    esp.ESP_NameTag.Adornee = head
+                    esp.ESP_NameTag.NameLabel.Text = player.Name
+                    esp.ESP_NameTag.DistanceLabel.Text = string.format("%.1f studs", distance)
+                    esp.ESP_NameTag.HealthLabel.Text = string.format("Health: %.0f", humanoid.Health)
+
+                    local offsetY = -10 - (distance * 0.05)
+                    esp.ESP_NameTag.StudsOffset = Vector3.new(0, offsetY, 0)
+
+                    local healthPercentage = humanoid.Health / humanoid.MaxHealth
+                    if healthPercentage > 0.5 then
+                        esp.ESP_NameTag.HealthLabel.TextColor3 = Color3.new(0, 0.5 + 0.5 * (1 - healthPercentage), 1)
+                    else
+                        esp.ESP_NameTag.HealthLabel.TextColor3 = Color3.new(1, 0, 0)
+                    end
+
+                    local tracerLine = esp:FindFirstChild("TracerLine")
+                    if tracerLine then
+                        local screenPoint = Camera:WorldToViewportPoint(humanoidRootPart.Position)
+                        tracerLine.CFrame = CFrame.new(
+                            Camera.CFrame.Position + Vector3.new(0, -Camera.ViewportSize.Y/2, 0),
+                            humanoidRootPart.Position
+                        )
+                    end
+                end
+            end
+        end
+    end
+end
+
+local function RemoveESP(player)
+    local esp = ESPParts[player]
+    if esp then
+        esp:Destroy()
+        ESPParts[player] = nil
+    end
+end
+
+Players.PlayerAdded:Connect(function(player)
+    player.CharacterAdded:Connect(function(character)
+        RemoveESP(player)
+        if ESPEnabled then
+            ESPParts[player] = CreateESP(player)
+        end
+    end)
+end)
+
+Players.PlayerRemoving:Connect(RemoveESP)
+
+RunService.RenderStepped:Connect(function()
+    UpdateESP()
+end)
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if not gameProcessed then
+        if input.KeyCode == Enum.KeyCode.C and CKeyBindEnabled then
+            ESPEnabled = not ESPEnabled
+            print("ESP " .. (ESPEnabled and "Enabled" or "Disabled"))
+        elseif input.KeyCode == Enum.KeyCode.P then
+            CKeyBindEnabled = not CKeyBindEnabled
+        end
+    end
+end)
+
+local function NewLine(color, thickness)
+    local line = Drawing.new("Line")
+    line.Visible = false
+    line.From = Vector2.new(0, 0)
+    line.To = Vector2.new(0, 0)
+    line.Color = color
+    line.Thickness = thickness
+    line.Transparency = 1
+    return line
+end
+
+local function Vis(lib, state)
+    for _, v in pairs(lib) do
+        v.Visible = state
+    end
+end
+
+local function Colorize(lib, color)
+    for _, v in pairs(lib) do
+        v.Color = color
+    end
+end
+
+local Black = Color3.fromRGB(0, 0, 0)
+
+local function Rainbow(lib, delay)
+    for hue = 0, 1, 1/30 do
+        local color = Color3.fromHSV(hue, 0.6, 1)
+        Colorize(lib, color)
+        wait(delay)
+    end
+    Rainbow(lib)
+end
+
+local function Main(plr)
+    repeat wait() until plr.Character ~= nil and plr.Character:FindFirstChild("Humanoid") ~= nil
+    local R15
+    if plr.Character.Humanoid.RigType == Enum.HumanoidRigType.R15 then
+        R15 = true
+    else 
+        R15 = false
+    end
+    local Library = {
+        TL1 = NewLine(Settings.Box_Color, Settings.Box_Thickness),
+        TL2 = NewLine(Settings.Box_Color, Settings.Box_Thickness),
+
+        TR1 = NewLine(Settings.Box_Color, Settings.Box_Thickness),
+        TR2 = NewLine(Settings.Box_Color, Settings.Box_Thickness),
+
+        BL1 = NewLine(Settings.Box_Color, Settings.Box_Thickness),
+        BL2 = NewLine(Settings.Box_Color, Settings.Box_Thickness),
+
+        BR1 = NewLine(Settings.Box_Color, Settings.Box_Thickness),
+        BR2 = NewLine(Settings.Box_Color, Settings.Box_Thickness)
+    }
+    coroutine.wrap(Rainbow)(Library, 0.15)
+    local oripart = Instance.new("Part")
+    oripart.Parent = workspace
+    oripart.Transparency = 1
+    oripart.CanCollide = false
+    oripart.Size = Vector3.new(1, 1, 1)
+    oripart.Position = Vector3.new(0, 0, 0)
+
+    local function Updater()
+        local c
+        c = game:GetService("RunService").RenderStepped:Connect(function()
+            if ESPEnabled and plr.Character ~= nil and plr.Character:FindFirstChild("Humanoid") ~= nil and plr.Character:FindFirstChild("HumanoidRootPart") ~= nil and plr.Character.Humanoid.Health > 0 and plr.Character:FindFirstChild("Head") ~= nil then
+                local Hum = plr.Character
+                local HumPos, vis = Camera:WorldToViewportPoint(Hum.HumanoidRootPart.Position)
+                if vis then
+                    oripart.Size = Vector3.new(Hum.HumanoidRootPart.Size.X, Hum.HumanoidRootPart.Size.Y*1.5, Hum.HumanoidRootPart.Size.Z)
+                    oripart.CFrame = CFrame.new(Hum.HumanoidRootPart.CFrame.Position, Camera.CFrame.Position)
+                    local SizeX = oripart.Size.X
+                    local SizeY = oripart.Size.Y
+                    local TL = Camera:WorldToViewportPoint((oripart.CFrame * CFrame.new(SizeX, SizeY, 0)).p)
+                    local TR = Camera:WorldToViewportPoint((oripart.CFrame * CFrame.new(-SizeX, SizeY, 0)).p)
+                    local BL = Camera:WorldToViewportPoint((oripart.CFrame * CFrame.new(SizeX, -SizeY, 0)).p)
+                    local BR = Camera:WorldToViewportPoint((oripart.CFrame * CFrame.new(-SizeX, -SizeY, 0)).p)
+
+                    if Settings.Team_Check then
+                        if plr.TeamColor == LocalPlayer.TeamColor then
+                            Colorize(Library, Color3.fromRGB(0, 255, 0))
+                        else 
+                            Colorize(Library, Color3.fromRGB(255, 0, 0))
+                        end
+                    end
+
+                    if Settings.Team_Color then
+                        Colorize(Library, plr.TeamColor.Color)
+                    end
+
+                    local ratio = (Camera.CFrame.p - Hum.HumanoidRootPart.Position).magnitude
+                    local offset = math.clamp(1/ratio*750, 2, 300)
+
+                    Library.TL1.From = Vector2.new(TL.X, TL.Y)
+                    Library.TL1.To = Vector2.new(TL.X + offset, TL.Y)
+                    Library.TL2.From = Vector2.new(TL.X, TL.Y)
+                    Library.TL2.To = Vector2.new(TL.X, TL.Y + offset)
+
+                    Library.TR1.From = Vector2.new(TR.X, TR.Y)
+                    Library.TR1.To = Vector2.new(TR.X - offset, TR.Y)
+                    Library.TR2.From = Vector2.new(TR.X, TR.Y)
+                    Library.TR2.To = Vector2.new(TR.X, TR.Y + offset)
+
+                    Library.BL1.From = Vector2.new(BL.X, BL.Y)
+                    Library.BL1.To = Vector2.new(BL.X + offset, BL.Y)
+                    Library.BL2.From = Vector2.new(BL.X, BL.Y)
+                    Library.BL2.To = Vector2.new(BL.X, BL.Y - offset)
+
+                    Library.BR1.From = Vector2.new(BR.X, BR.Y)
+                    Library.BR1.To = Vector2.new(BR.X - offset, BR.Y)
+                    Library.BR2.From = Vector2.new(BR.X, BR.Y)
+                    Library.BR2.To = Vector2.new(BR.X, BR.Y - offset)
+
+                    Vis(Library, true)
+
+                    if Settings.Autothickness then
+                        local distance = (LocalPlayer.Character.HumanoidRootPart.Position - oripart.Position).magnitude
+                        local value = math.clamp(1/distance*100, 1, 4)
+                        for u, x in pairs(Library) do
+                            x.Thickness = value
+                        end
+                    else 
+                        for u, x in pairs(Library) do
+                            x.Thickness = Settings.Box_Thickness
+                        end
+                    end
+                else 
+                    Vis(Library, false)
+                end
+            else 
+                Vis(Library, false)
+                if Players:FindFirstChild(plr.Name) == nil then
+                    for i, v in pairs(Library) do
+                        v:Remove()
+                        oripart:Destroy()
+                    end
+                    c:Disconnect()
+                end
+            end
+        end)
+    end
+    coroutine.wrap(Updater)()
+end
+
+for _, v in pairs(Players:GetPlayers()) do
+    if v.Name ~= LocalPlayer.Name then
+        coroutine.wrap(Main)(v)
+    end
+end
+
+Players.PlayerAdded:Connect(function(newplr)
+    coroutine.wrap(Main)(newplr)
+end)
