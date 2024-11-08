@@ -6,6 +6,7 @@ local Camera = workspace.CurrentCamera
 
 local ESPEnabled = false
 local ESPParts = {}
+local CKeyBindEnabled = true -- Переменная для управления активностью привязки к клавише C
 
 local function CreateESP(player)
     local esp = Instance.new("Folder")
@@ -16,7 +17,7 @@ local function CreateESP(player)
     nameTag.Name = "ESP_NameTag"
     nameTag.Size = UDim2.new(0, 200, 0, 75)
     nameTag.AlwaysOnTop = true
-    nameTag.StudsOffset = Vector3.new(0, -0.4, 0)  -- Начальное смещение немного выше под игроком
+    nameTag.StudsOffset = Vector3.new(0, -0.4, 0)
     nameTag.Parent = esp
 
     local nameLabel = Instance.new("TextLabel")
@@ -56,13 +57,12 @@ local function CreateESP(player)
     healthLabel.TextSize = 14
     healthLabel.Parent = nameTag
 
-    -- Создаем линию для трейсера
     local tracerLine = Instance.new("LineHandleAdornment")
     tracerLine.Name = "TracerLine"
     tracerLine.Thickness = 2
-    tracerLine.Color3 = Color3.new(0, 1, 1)  -- RGB цвет трейсера
+    tracerLine.Color3 = Color3.new(0, 1, 1)
     tracerLine.Transparency = 0.25
-    tracerLine.Adornee = workspace  -- Закрепляем к workspace
+    tracerLine.Adornee = workspace
     tracerLine.Parent = esp
 
     esp.Parent = Camera
@@ -87,7 +87,6 @@ local function UpdateESP()
                 esp.Parent = ESPEnabled and Camera or nil
 
                 if ESPEnabled then
-                    -- Расстояние между игроками
                     local distance = (LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")) and 
                                      (LocalPlayer.Character.HumanoidRootPart.Position - humanoidRootPart.Position).Magnitude or 0
 
@@ -96,11 +95,9 @@ local function UpdateESP()
                     esp.ESP_NameTag.DistanceLabel.Text = string.format("%.1f studs", distance)
                     esp.ESP_NameTag.HealthLabel.Text = string.format("Health: %.0f", humanoid.Health)
 
-                    -- Обновляем смещение вниз в зависимости от расстояния
-                    local offsetY = -10 - (distance * 0.05)  -- Начальное значение -0.4 и немного уходит ниже с увеличением расстояния
+                    local offsetY = -10 - (distance * 0.05)
                     esp.ESP_NameTag.StudsOffset = Vector3.new(0, offsetY, 0)
 
-                    -- Обновление цвета здоровья
                     local healthPercentage = humanoid.Health / humanoid.MaxHealth
                     if healthPercentage > 0.5 then
                         esp.ESP_NameTag.HealthLabel.TextColor3 = Color3.new(0, 0.5 + 0.5 * (1 - healthPercentage), 1)
@@ -108,13 +105,12 @@ local function UpdateESP()
                         esp.ESP_NameTag.HealthLabel.TextColor3 = Color3.new(1, 0, 0)
                     end
 
-                    -- Обновляем позицию трейсера
                     local tracerLine = esp:FindFirstChild("TracerLine")
                     if tracerLine then
                         local screenPoint = Camera:WorldToViewportPoint(humanoidRootPart.Position)
                         tracerLine.CFrame = CFrame.new(
-                            Camera.CFrame.Position + Vector3.new(0, -Camera.ViewportSize.Y/2, 0), -- начальная точка трейсера
-                            humanoidRootPart.Position -- конечная точка трейсера
+                            Camera.CFrame.Position + Vector3.new(0, -Camera.ViewportSize.Y/2, 0),
+                            humanoidRootPart.Position
                         )
                     end
                 end
@@ -147,8 +143,12 @@ RunService.RenderStepped:Connect(function()
 end)
 
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if not gameProcessed and input.KeyCode == Enum.KeyCode.C then
-        ESPEnabled = not ESPEnabled
-        print("ESP " .. (ESPEnabled and "Enabled" or "Disabled"))
+    if not gameProcessed then
+        if input.KeyCode == Enum.KeyCode.C and CKeyBindEnabled then
+            ESPEnabled = not ESPEnabled
+            print("ESP " .. (ESPEnabled and "Enabled" or "Disabled"))
+        elseif input.KeyCode == Enum.KeyCode.P then
+            CKeyBindEnabled = not CKeyBindEnabled
+        end
     end
 end)
