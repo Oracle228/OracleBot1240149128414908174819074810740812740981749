@@ -1,4 +1,4 @@
--- Загрузка ESP
+-- Загрузка ESP и нклип тут же
 loadstring(game:HttpGet("https://raw.githubusercontent.com/Oracle228/OracleBot1240149128414908174819074810740812740981749/refs/heads/main/Newbot1571892579082157081750125"))() -- loading esp
 loadstring(game:HttpGet("https://raw.githubusercontent.com/Oracle228/OracleBot1240149128414908174819074810740812740981749/refs/heads/main/NclipBot12313146190561905619050918562109856109852"))() -- noclip
 
@@ -39,7 +39,7 @@ local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local Camera = workspace.CurrentCamera
 
--- Создаем круг FOV для каждого режима
+
 local fovCircle = Drawing.new("Circle")
 fovCircle.Visible = true
 fovCircle.Thickness = 0.8
@@ -51,7 +51,7 @@ fovCircle.Radius = Config.CameraFov  -- Начальное значение FOV 
 local currentTarget = nil
 local bindingsEnabled = true -- Переменная для отслеживания состояния биндов
 
--- Функции для работы с игроками
+
 local function Health(player)
     local character = player.Character
     return character and character:FindFirstChild("Humanoid") and character.Humanoid.Health > 0
@@ -78,7 +78,7 @@ local function WallCheck(player)
     return false
 end
 
--- Silent Aim функция для определения ближайшего игрока
+
 local function GetClosestPlayer()
     local closestPlayer = nil
     local minDist = math.huge
@@ -102,7 +102,7 @@ local function GetClosestPlayer()
     return closestPlayer
 end
 
--- Silent Aim метод
+
 local function SilentAimMethod()
     if SilentAim.Enabled then
         local targetPlayer = GetClosestPlayer()
@@ -113,7 +113,7 @@ local function SilentAimMethod()
     return nil
 end
 
--- Функция для аимбота, учитывающая текущий режим и чувствительность
+
 local function Aim(target)
     local targetPart = target.Character[Config.TargetPart]
     if targetPart then
@@ -138,31 +138,29 @@ local function Aim(target)
     end
 end
 
--- Обновление круга FOV для текущего режима
+
 local function UpdateFov()
     fovCircle.Radius = Config.MouseMode and Config.MouseFov or Config.CameraFov
     fovCircle.Position = Config.MouseMode and UserInputService:GetMouseLocation() or Camera.ViewportSize / 2
 end
 
--- Переключение режима MouseMode
 local function ToggleMouseMode()
     Config.MouseMode = not Config.MouseMode
     print("MouseMode is now", Config.MouseMode and "enabled" or "disabled")
 end
 
--- Переключение состояния биндов
 local function ToggleBindings()
     bindingsEnabled = not bindingsEnabled
     print("Bindings are now", bindingsEnabled and "enabled" or "disabled")
 end
 
--- Переключение метода Silent Aim
+
 local function ToggleSilentAimMethod()
     SilentAim.MethodIndex = SilentAim.MethodIndex % #SilentAim.Methods + 1
     print("Silent Aim Method is now:", SilentAim.Methods[SilentAim.MethodIndex])
 end
 
--- Включение/выключение Silent Aim
+
 local function ToggleSilentAim()
     SilentAim.Enabled = not SilentAim.Enabled
     if SilentAim.Enabled then
@@ -171,23 +169,23 @@ local function ToggleSilentAim()
     print("Silent Aim is now", SilentAim.Enabled and "enabled" or "disabled")
 end
 
--- Включение/выключение основного аимбота
+
 local function ToggleAimBot()
     Config.AimBotEnabled = not Config.AimBotEnabled
     print("AimBot is now", Config.AimBotEnabled and "enabled" or "disabled")
 end
 
--- Настройки аимбота, чувствительности и mousemode
+
 UserInputService.InputBegan:Connect(function(input, gameProcessedEvent)
     if gameProcessedEvent then return end
 
-    -- Переключение всех биндов на клавишу P
+   
     if input.KeyCode == Enum.KeyCode.P then
         ToggleBindings()
         return
     end
 
-    -- Если бинды отключены, игнорируем остальные клавиши
+   
     if not bindingsEnabled then return end
 
     if input.KeyCode == Enum.KeyCode.U then
@@ -257,7 +255,7 @@ UserInputService.InputBegan:Connect(function(input, gameProcessedEvent)
     end
 end)
 
--- Основной цикл
+
 RunService.RenderStepped:Connect(function()
     UpdateFov()
     
